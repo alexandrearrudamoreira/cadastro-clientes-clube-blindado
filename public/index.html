@@ -1,0 +1,738 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="description" content="Sistema de Cadastro de Clientes - Clube do Blindado">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Cadastro de Clientes - Clube do Blindado</title>
+    <style>
+:root {
+    --color-primary: #C41E3A;
+    --color-secondary: #1a1a1a;
+    --color-accent: #D4AF37;
+    --color-white: #ffffff;
+    --color-gray: #6c757d;
+    --color-gray-light: #f0f2f5;
+    --color-error: #dc3545;
+    --color-success: #28a745;
+    --color-text: #333333;
+    
+    --spacing-xs: 0.5rem;
+    --spacing-sm: 1rem;
+    --spacing-md: 1.5rem;
+    --spacing-lg: 2rem;
+    --spacing-xl: 3rem;
+    
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    
+    --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.4);
+    
+    --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    background: linear-gradient(135deg, #0a1f2e 0%, #0d2e47 25%, #1a4d6d 50%, #2563a1 75%, #1a5a8a 100%);
+    background-attachment: fixed;
+    color: var(--color-text);
+    line-height: 1.6;
+    min-height: 100vh;
+}
+
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-image: 
+        repeating-linear-gradient(
+            90deg,
+            transparent,
+            transparent 1px,
+            rgba(100, 180, 255, 0.03) 1px,
+            rgba(100, 180, 255, 0.03) 2px
+        );
+    pointer-events: none;
+    z-index: -1;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.header {
+    background: #1a1a1a;
+    border-bottom: 2px solid var(--color-accent);
+    padding: 0.8rem var(--spacing-xl);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+}
+
+.logo-section {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.club-logo {
+    height: 75px;
+    width: auto;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+}
+
+.logo-section h1 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--color-accent);
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    margin: 0;
+}
+
+.main-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-xl);
+    align-items: center;
+}
+
+.form-container {
+    width: 100%;
+    max-width: 700px;
+}
+
+.form-wrapper {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    box-shadow: var(--shadow-lg);
+    width: 100%;
+    border-left: 4px solid var(--color-accent);
+}
+
+.form-header {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 2px solid var(--color-accent);
+}
+
+.form-header h2 {
+    font-size: 1.8rem;
+    color: var(--color-primary);
+    margin-bottom: var(--spacing-sm);
+    font-weight: 700;
+}
+
+.form-header p {
+    color: var(--color-gray);
+    font-size: 0.95rem;
+}
+
+.form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-md);
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+@media (max-width: 600px) {
+    .form {
+        grid-template-columns: 1fr;
+    }
+}
+
+label {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    font-weight: 600;
+    color: var(--color-text);
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.label-text {
+    position: relative;
+}
+
+.required {
+    color: var(--color-error);
+    font-weight: 800;
+}
+
+.form-input {
+    padding: 12px 16px;
+    border: 2px solid var(--color-gray-light);
+    border-radius: var(--radius-md);
+    font-size: 1rem;
+    transition: var(--transition);
+    font-family: inherit;
+    background: var(--color-gray-light);
+    color: var(--color-text);
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    background: var(--color-white);
+    box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+.form-input:valid:not(:placeholder-shown) {
+    border-color: var(--color-success);
+    background: rgba(40, 167, 69, 0.02);
+}
+
+.form-input.error {
+    border-color: var(--color-error);
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.form-input::placeholder {
+    color: #999;
+}
+
+.error-message {
+    color: var(--color-error);
+    font-size: 0.8rem;
+    font-weight: 500;
+    min-height: 1.2rem;
+    display: block;
+}
+
+.form-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-lg);
+    padding-top: var(--spacing-lg);
+    border-top: 1px solid var(--color-gray-light);
+}
+
+.btn {
+    padding: 14px 24px;
+    border: none;
+    border-radius: var(--radius-md);
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    box-shadow: var(--shadow-md);
+    flex: 1;
+    min-height: 48px;
+}
+
+.btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+}
+
+.btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--color-primary) 0%, #9c1428 100%);
+    color: var(--color-white);
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: linear-gradient(135deg, #e63a52 0%, var(--color-primary) 100%);
+}
+
+.btn-secondary {
+    background: var(--color-gray-light);
+    color: var(--color-text);
+    border: 2px solid var(--color-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-white);
+}
+
+.spinner {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: var(--color-white);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.success-message {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+    backdrop-filter: blur(4px);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.success-content {
+    background: var(--color-white);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    text-align: center;
+    box-shadow: var(--shadow-lg);
+    animation: slideUp 0.3s ease;
+    max-width: 450px;
+    border-top: 4px solid var(--color-success);
+    position: relative;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(40px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.success-icon {
+    font-size: 3.5rem;
+    color: var(--color-success);
+    margin-bottom: var(--spacing-md);
+}
+
+.success-content h3 {
+    color: var(--color-primary);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.6rem;
+}
+
+.success-content p {
+    color: var(--color-gray);
+    margin-bottom: var(--spacing-lg);
+}
+
+.close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--color-gray);
+    cursor: pointer;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    padding: 0;
+}
+
+.close-btn:hover {
+    background: var(--color-gray-light);
+    color: var(--color-primary);
+}
+
+.close-btn:active {
+    transform: scale(0.9);
+}
+
+.support-banner {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+    border: 2px solid var(--color-accent);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    text-align: center;
+    box-shadow: var(--shadow-md);
+    max-width: 700px;
+    width: 100%;
+}
+
+.support-banner h3 {
+    color: var(--color-accent);
+    margin-bottom: var(--spacing-sm);
+    font-size: 1.3rem;
+    font-weight: 700;
+}
+
+.support-banner p {
+    color: var(--color-white);
+    margin-bottom: var(--spacing-md);
+    opacity: 0.9;
+}
+
+.support-link {
+    display: inline-block;
+    color: var(--color-primary);
+    text-decoration: none;
+    font-weight: 700;
+    transition: var(--transition);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border: 2px solid var(--color-primary);
+    border-radius: var(--radius-md);
+}
+
+.support-link:hover {
+    background: var(--color-primary);
+    color: var(--color-white);
+    transform: translateY(-2px);
+}
+
+.footer {
+    background: #1a1a1a;
+    color: var(--color-white);
+    text-align: center;
+    padding: var(--spacing-lg);
+    border-top: 2px solid var(--color-accent);
+    margin-top: auto;
+    font-size: 0.9rem;
+    opacity: 0.85;
+}
+
+@media (max-width: 768px) {
+    .header {
+        padding: 1rem var(--spacing-lg);
+    }
+
+    .logo-section {
+        gap: var(--spacing-md);
+    }
+
+    .logo-section h1 {
+        font-size: 1.4rem;
+    }
+
+    .club-logo {
+        height: 60px;
+    }
+
+    .container {
+        padding: var(--spacing-md);
+    }
+
+    .form-wrapper {
+        padding: var(--spacing-lg);
+    }
+
+    .form {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions {
+        flex-direction: column;
+    }
+
+    .btn {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 0.75rem var(--spacing-sm);
+    }
+
+    .logo-section {
+        gap: var(--spacing-sm);
+    }
+
+    .logo-section h1 {
+        font-size: 1rem;
+        letter-spacing: 1px;
+    }
+
+    .club-logo {
+        height: 45px;
+    }
+
+    .container {
+        padding: var(--spacing-sm);
+    }
+
+    .main-content {
+        padding: var(--spacing-md);
+        gap: var(--spacing-md);
+    }
+
+    .form-container {
+        max-width: 100%;
+    }
+
+    .form-wrapper {
+        padding: var(--spacing-md);
+        border-radius: 8px;
+    }
+
+    .form {
+        grid-template-columns: 1fr;
+        gap: var(--spacing-sm);
+    }
+
+    .form-header h2 {
+        font-size: 1.2rem;
+        margin-bottom: var(--spacing-xs);
+    }
+
+    .form-header p {
+        font-size: 0.85rem;
+    }
+
+    label {
+        font-size: 0.85rem;
+    }
+
+    .form-input {
+        padding: 10px 12px;
+        font-size: 16px;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px 16px;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+
+    .support-banner {
+        max-width: 100%;
+        padding: var(--spacing-md);
+    }
+
+    .success-content {
+        max-width: 90%;
+        padding: var(--spacing-lg);
+    }
+
+    .footer {
+        padding: var(--spacing-md);
+        font-size: 0.8rem;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="logo-clube.png" alt="Clube do Blindado" class="club-logo">
+                    <h1>CLUBE DO BLINDADO</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Form Container -->
+        <main class="main-content">
+            <div class="form-container">
+                <div class="form-wrapper">
+                    <div class="form-header">
+                        <h2>Cadastro de Cliente</h2>
+                        <p>Preencha os dados abaixo para registrar seu veículo blindado</p>
+                    </div>
+
+                    <form id="cadastroForm" class="form">
+                        <!-- Nome do Cliente -->
+                        <div class="form-group">
+                            <label for="nomeCliente">
+                                <span class="label-text">Nome do Cliente</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="nomeCliente" 
+                                name="nomeCliente"
+                                required
+                                class="form-input"
+                            >
+                            <span class="error-message" id="error-nomeCliente"></span>
+                        </div>
+
+                        <!-- Celular -->
+                        <div class="form-group">
+                            <label for="celular">
+                                <span class="label-text">Celular</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="celular" 
+                                name="celular"
+                                required
+                                class="form-input"
+                                maxlength="15"
+                            >
+                            <span class="error-message" id="error-celular"></span>
+                        </div>
+
+                        <!-- Placa do Veículo -->
+                        <div class="form-group">
+                            <label for="placa">
+                                <span class="label-text">Placa do Veículo</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="placa" 
+                                name="placa"
+                                required
+                                class="form-input"
+                                maxlength="7"
+                            >
+                            <span class="error-message" id="error-placa"></span>
+                        </div>
+
+                        <!-- Ano/Modelo -->
+                        <div class="form-group">
+                            <label for="anoModelo">
+                                <span class="label-text">Ano/Modelo</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="anoModelo" 
+                                name="anoModelo"
+                                required
+                                class="form-input"
+                                placeholder="AAAA/AAAA"
+                            >
+                            <span class="error-message" id="error-anoModelo"></span>
+                        </div>
+
+                        <!-- E-mail -->
+                        <div class="form-group">
+                            <label for="email">
+                                <span class="label-text">E-mail</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="email" 
+                                id="email" 
+                                name="email"
+                                required
+                                class="form-input"
+                            >
+                            <span class="error-message" id="error-email"></span>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <span class="btn-text">Salvar Cadastro</span>
+                                <span class="btn-loader" style="display: none;">
+                                    <span class="spinner"></span>
+                                </span>
+                            </button>
+                            <button type="reset" class="btn btn-secondary" id="resetBtn">
+                                Novo Cadastro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Support Banner -->
+            <div class="support-banner">
+                <h3>Precisa de Ajuda?</h3>
+                <p>Entre em contato com nosso suporte para dúvidas sobre o cadastro.</p>
+                <a href="mailto:suporte@clubedoBlindado.com.br" class="support-link">Contatar Suporte</a>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2026 Clube do Blindado. Todos os direitos reservados.</p>
+        </footer>
+    </div>
+
+    <!-- Success Message Modal -->
+    <div id="successMessage" class="success-message" style="display: none;">
+        <div class="success-content">
+            <button id="closeSuccessBtn" class="close-btn" aria-label="Fechar" title="Fechar">&times;</button>
+            <div class="success-icon">✔️</div>
+            <h3>Cadastro Salvo com Sucesso!</h3>
+            <p>Seus dados foram registrados corretamente.</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
