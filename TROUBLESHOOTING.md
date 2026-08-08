@@ -300,6 +300,44 @@ npm start
 
 ---
 
+### 8. ⚠️ Token expira quando servidor reinicia
+
+**Sintoma:** Após deploy ou reinicialização do Railway, precisa fazer login novamente (`/auth`)
+
+**Por que acontece:**
+O token OAuth é salvo em memória (variável global `globalTokens`). Quando o servidor reinicia, a memória é zerada.
+
+**É isso normal?**
+```
+✅ SIM! É comportamento esperado
+✅ Railway não reinicia frequentemente (só em deploy ou mudança de env vars)
+✅ Quando reinicia, fazer /auth novamente (2 minutos)
+```
+
+**Solução permanente (futuro):**
+```javascript
+// Salvar token em arquivo /tmp (persiste por restart)
+const tokenPath = '/tmp/oauth-token.json';
+
+// No callback:
+fs.writeFileSync(tokenPath, JSON.stringify(tokens));
+
+// No middleware:
+if (fs.existsSync(tokenPath)) {
+    const savedTokens = JSON.parse(fs.readFileSync(tokenPath));
+    oauth2Client.setCredentials(savedTokens);
+}
+```
+
+**Alternativas (mais robustas):**
+- Supabase: banco de dados para persistir token
+- Redis: cache para sessões
+- MongoDB: armazenar tokens de forma escalável
+
+**Recomendação atual:** Deixar como está, implementar arquivo em /tmp na v2
+
+---
+
 ## 📞 Informações Úteis
 
 ### URLs Importantes

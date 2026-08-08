@@ -491,13 +491,27 @@ submitBtn.textContent = 'Salvar Cadastro';
 ## 🎯 Próximos Passos (Futuros)
 
 ### Possíveis Melhorias
-- [ ] Salvar dados também em banco de dados (Supabase)
+
+**Prioridade Alta:**
+- [ ] **Persistir token em arquivo /tmp** (evitar re-login após restart)
+  ```javascript
+  // Salvar token em arquivo persistente
+  const tokenPath = '/tmp/oauth-token.json';
+  fs.writeFileSync(tokenPath, JSON.stringify(tokens));
+  ```
+- [ ] Salvar dados também em banco de dados (Supabase/MongoDB)
 - [ ] Enviar email de confirmação ao cliente
-- [ ] Dashboard de estatísticas (quantos cadastros)
+
+**Prioridade Média:**
+- [ ] Dashboard de estatísticas (quantos cadastros por mês)
 - [ ] Editar cadastros existentes
 - [ ] Autenticação de admin (proteger dashboard)
 - [ ] Integração com WhatsApp (notificar cliente)
+
+**Prioridade Baixa:**
 - [ ] Multi-idioma (português/inglês)
+- [ ] Logs centralizados (Sentry)
+- [ ] Métricas de performance
 
 ### Monitoramento
 - [ ] Setup de logs centralizados (Sentry)
