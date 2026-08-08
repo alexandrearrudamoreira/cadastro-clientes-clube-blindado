@@ -1,4 +1,4 @@
-﻿// Servidor - Cadastro de Clientes (Serverless para Vercel)
+// Servidor - Cadastro de Clientes (Railway Deployment)
 const express = require('express');
 const path = require('path');
 const PDFDocument = require('pdfkit');
@@ -10,18 +10,18 @@ const dotenv = require('dotenv');
 try {
     dotenv.config();
 } catch (e) {
-    console.log('Aviso: arquivo .env nÃ£o encontrado');
+    console.log('Aviso: arquivo .env não encontrado');
 }
 
 const app = express();
 
-console.log('ðŸš€ Inicializando API Cadastro de Clientes...');
+console.log('🚀 Inicializando API Cadastro de Clientes...');
 
 // Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estÃ¡ticos da pasta public
+// Servir arquivos estáticos da pasta public
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Google Drive Setup
@@ -29,27 +29,29 @@ const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1KcR1VDwRT
 
 let drive = null;
 let googleAuthReady = false;
+let oauth2Client = null;
+let globalTokens = null; // Persistência de token em memória
 
 // Inicializar Google Drive com OAuth
 const initGoogleDrive = async () => {
     try {
         let credentials;
         
-        // Tentar ler da variÃ¡vel de ambiente (Vercel) primeiro
+        // Tentar ler da variável de ambiente (Railway) primeiro
         if (process.env.OAUTH_CREDENTIALS_JSON) {
             credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
-            console.log('âœ… Credenciais OAuth carregadas da variÃ¡vel de ambiente');
+            console.log('✅ Credenciais OAuth carregadas da variável de ambiente');
         } else {
             // Fallback para arquivo local (desenvolvimento)
             const oauthFile = path.join(__dirname, 'oauth-credentials.json');
             if (!fs.existsSync(oauthFile)) {
-                throw new Error('oauth-credentials.json nÃ£o encontrado e OAUTH_CREDENTIALS_JSON nÃ£o definida');
+                throw new Error('oauth-credentials.json não encontrado e OAUTH_CREDENTIALS_JSON não definida');
             }
             credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
-            console.log('âœ… Credenciais OAuth carregadas do arquivo local');
+            console.log('✅ Credenciais OAuth carregadas do arquivo local');
         }
         
-        const oauth2Client = new google.auth.OAuth2(
+        oauth2Client = new google.auth.OAuth2(
             credentials.client_id,
             credentials.client_secret,
             credentials.redirect_uris[0]
@@ -61,16 +63,16 @@ const initGoogleDrive = async () => {
         });
         
         googleAuthReady = true;
-        console.log('âœ… Google Drive OAuth pronto');
+        console.log('✅ Google Drive OAuth pronto');
     } catch (erro) {
-        console.warn('âš ï¸  Google Drive nÃ£o inicializado:', erro.message);
+        console.warn('⚠️  Google Drive não inicializado:', erro.message);
         googleAuthReady = false;
     }
 };
 
 initGoogleDrive();
 
-// FunÃ§Ã£o: Gerar PDF (1 pÃ¡gina Ãºnica)
+// Função: Gerar PDF (1 página única)
 async function gerarPDF(dados) {
     return new Promise((resolve, reject) => {
         try {
@@ -92,11 +94,11 @@ async function gerarPDF(dados) {
 
             doc.on('error', reject);
 
-            // Ãrea do Header (fundo preto)
+            // Área do Header (fundo preto)
             doc.rect(0, 0, doc.page.width, 50)
                 .fill('#1a1a1a');
 
-            // TÃ­tulo
+            // Título
             doc.fontSize(16)
                .font('Helvetica-Bold')
                .fillColor('#C41E3A')
@@ -105,7 +107,7 @@ async function gerarPDF(dados) {
             doc.fillColor('#333333');
             let yPos = 65;
 
-            // TÃ­tulo SeÃ§Ã£o 1
+            // Título Seção 1
             doc.fontSize(9)
                .font('Helvetica-Bold')
                .fillColor('#C41E3A')
@@ -142,11 +144,11 @@ async function gerarPDF(dados) {
                .text(dados.email.substring(0, 45), 90, yPos);
             yPos += 15;
 
-            // TÃ­tulo SeÃ§Ã£o 2
+            // Título Seção 2
             doc.fontSize(9)
                .font('Helvetica-Bold')
                .fillColor('#C41E3A')
-               .text('DADOS DO VEÃCULO', 30, yPos);
+               .text('DADOS DO VEÍCULO', 30, yPos);
             yPos += 10;
 
             // Placa
@@ -169,13 +171,13 @@ async function gerarPDF(dados) {
                .text(dados.anoModelo, 90, yPos);
             yPos += 20;
 
-            // Linha divisÃ³ria
+            // Linha divisória
             doc.moveTo(30, yPos)
                .lineTo(565, yPos)
                .stroke('#D4AF37');
             yPos += 8;
 
-            // RodapÃ©
+            // Rodapé
             doc.fontSize(6)
                .font('Helvetica')
                .fillColor('#666666')
@@ -183,7 +185,7 @@ async function gerarPDF(dados) {
             
             doc.fontSize(6)
                .fillColor('#999999')
-               .text('Â© 2026 Clube do Blindado', 30, yPos + 10);
+               .text('© 2026 Clube do Blindado', 30, yPos + 10);
 
             doc.end();
 
@@ -193,7 +195,7 @@ async function gerarPDF(dados) {
     });
 }
 
-// FunÃ§Ã£o: Buscar arquivo existente no Drive
+// Função: Buscar arquivo existente no Drive
 async function buscarArquivoNoDrive(nomeArquivo) {
     try {
         const response = await drive.files.list({
@@ -208,18 +210,18 @@ async function buscarArquivoNoDrive(nomeArquivo) {
         }
         return null;
     } catch (erro) {
-        console.warn('âš ï¸  Erro ao buscar arquivo:', erro.message);
+        console.warn('⚠️  Erro ao buscar arquivo:', erro.message);
         return null;
     }
 }
 
-// FunÃ§Ã£o: Salvar no Google Drive
+// Função: Salvar no Google Drive
 async function salvarNoDrive(nomeArquivo, pdfBuffer) {
     if (!googleAuthReady || !drive) {
-        console.warn('âŒ Google Drive nÃ£o autenticado. NÃ£o serÃ¡ possÃ­vel salvar.');
+        console.warn('❌ Google Drive não autenticado. Não será possível salvar.');
         return {
             savedToDrive: false,
-            error: 'Google Drive nÃ£o autenticado'
+            error: 'Google Drive não autenticado'
         };
     }
     
@@ -229,7 +231,7 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
         let fileId = null;
         
         if (arquivoExistenteId) {
-            console.log(`ðŸ“ Arquivo "${nomeArquivo}" jÃ¡ existe. Sobrepondo...`);
+            console.log(`📝 Arquivo "${nomeArquivo}" já existe. Sobrepondo...`);
             
             const media = {
                 mimeType: 'application/pdf',
@@ -242,7 +244,7 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
             });
             
             fileId = arquivoExistenteId;
-            console.log(`âœ… Arquivo atualizado no Google Drive: ${fileId}`);
+            console.log(`✅ Arquivo atualizado no Google Drive: ${fileId}`);
         } else {
             const fileMetadata = {
                 name: nomeArquivo,
@@ -261,7 +263,7 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
             });
 
             fileId = arquivo.data.id;
-            console.log(`âœ… Arquivo criado no Google Drive: ${fileId}`);
+            console.log(`✅ Arquivo criado no Google Drive: ${fileId}`);
         }
         
         return {
@@ -271,7 +273,7 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
         };
 
     } catch (erro) {
-        console.error('âŒ Erro ao salvar no Google Drive:', erro.message);
+        console.error('❌ Erro ao salvar no Google Drive:', erro.message);
         return {
             savedToDrive: false,
             error: erro.message
@@ -279,7 +281,6 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
     }
 }
 
-// Rota: PÃ¡gina principal (serve index.html da pasta public)
 // MIDDLEWARE: Restaurar token antes das rotas
 app.use((req, res, next) => {
     if (globalTokens && oauth2Client) {
@@ -293,6 +294,7 @@ app.use((req, res, next) => {
     next();
 });
 
+// Rota: Página principal (serve index.html da pasta public)
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -302,34 +304,34 @@ app.post('/api/cadastro', async (req, res) => {
     try {
         const dados = req.body;
 
-        console.log('\nðŸ”„ Processando cadastro...');
-        console.log(`ðŸ“‹ Cliente: ${dados.nomeCliente}`);
-        console.log(`ðŸš— Placa: ${dados.placa}`);
+        console.log('\n🔄 Processando cadastro...');
+        console.log(`📋 Cliente: ${dados.nomeCliente}`);
+        console.log(`🚗 Placa: ${dados.placa}`);
 
         if (!dados.nomeCliente || !dados.celular || !dados.placa || !dados.anoModelo || !dados.email) {
             return res.status(400).json({
                 sucesso: false,
-                mensagem: 'Todos os campos sÃ£o obrigatÃ³rios'
+                mensagem: 'Todos os campos são obrigatórios'
             });
         }
 
-        console.log('ðŸ“„ Gerando PDF...');
+        console.log('📄 Gerando PDF...');
         const pdfBuffer = await gerarPDF(dados);
 
         const nomeArquivo = `${dados.placa.toUpperCase()}_1.pdf`;
 
-        console.log(`ðŸ’¾ Salvando "${nomeArquivo}" no Google Drive...`);
+        console.log(`💾 Salvando "${nomeArquivo}" no Google Drive...`);
         const resultadoDrive = await salvarNoDrive(nomeArquivo, pdfBuffer);
 
         if (!resultadoDrive.savedToDrive) {
-            console.error(`âŒ Falha ao salvar no Google Drive: ${resultadoDrive.error}`);
+            console.error(`❌ Falha ao salvar no Google Drive: ${resultadoDrive.error}`);
             return res.status(500).json({
                 sucesso: false,
                 mensagem: 'Erro ao salvar arquivo no Google Drive: ' + resultadoDrive.error
             });
         }
 
-        console.log(`âœ… Cadastro salvo com sucesso no Google Drive!\n`);
+        console.log(`✅ Cadastro salvo com sucesso no Google Drive!\n`);
         res.json({
             sucesso: true,
             mensagem: 'Cadastro salvo com sucesso!',
@@ -338,7 +340,7 @@ app.post('/api/cadastro', async (req, res) => {
         });
 
     } catch (erro) {
-        console.error('âŒ Erro no cadastro:', erro);
+        console.error('❌ Erro no cadastro:', erro);
         res.status(500).json({
             sucesso: false,
             mensagem: 'Erro ao processar cadastro: ' + erro.message
@@ -346,18 +348,19 @@ app.post('/api/cadastro', async (req, res) => {
     }
 });
 
-// Rota: AutenticaÃ§Ã£o OAuth
-let oauth2Client = null;
-let globalTokens = null;
-
+// Rota: Autenticação OAuth
 app.get('/auth', (req, res) => {
     try {
-        // Em produção: SEMPRE usar variável de ambiente
-        if (!process.env.OAUTH_CREDENTIALS_JSON) {
-            throw new Error('OAUTH_CREDENTIALS_JSON nao configurada no ambiente');
-        }
+        let credentials;
         
-        const credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
+        // Tentar ler da variável de ambiente (Railway) primeiro
+        if (process.env.OAUTH_CREDENTIALS_JSON) {
+            credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
+        } else {
+            // Fallback para arquivo local (desenvolvimento)
+            const oauthFile = path.join(__dirname, 'oauth-credentials.json');
+            credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        }
         
         // Usar o redirect_uri correto (do arquivo de credenciais)
         const redirectUri = credentials.redirect_uris[0];
@@ -373,24 +376,24 @@ app.get('/auth', (req, res) => {
             scope: ['https://www.googleapis.com/auth/drive']
         });
         
-        console.log('ðŸ” Redirecionando para autenticaÃ§Ã£o Google...');
+        console.log('🔐 Redirecionando para autenticação Google...');
         console.log(`   Redirect URI: ${redirectUri}`);
         res.redirect(authUrl);
     } catch (erro) {
-        console.error('âŒ Erro ao iniciar autenticaÃ§Ã£o:', erro.message);
-        res.status(500).send('Erro ao iniciar autenticaÃ§Ã£o: ' + erro.message);
+        console.error('❌ Erro ao iniciar autenticação:', erro.message);
+        res.status(500).send('Erro ao iniciar autenticação: ' + erro.message);
     }
 });
 
 app.get('/auth/callback', async (req, res) => {
     try {
         const code = req.query.code;
-        if (!code) throw new Error('CÃ³digo de autorizaÃ§Ã£o nÃ£o recebido');
+        if (!code) throw new Error('Código de autorização não recebido');
         
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
         
-        // Salvar token globalmente para persistir entre requisiÃ§Ãµes
+        // Salvar token globalmente para persistir entre requisições
         globalTokens = tokens;
         
         drive = google.drive({
@@ -399,25 +402,12 @@ app.get('/auth/callback', async (req, res) => {
         });
         googleAuthReady = true;
         
-        res.send('âœ… AutenticaÃ§Ã£o bem-sucedida! Token salvo. VocÃª pode fechar esta janela.');
-        console.log('âœ… Token OAuth salvo com sucesso!');
+        res.send('✅ Autenticação bem-sucedida! Token salvo. Você pode fechar esta janela.');
+        console.log('✅ Token OAuth salvo com sucesso!');
     } catch (erro) {
-        res.status(500).send('âŒ Erro na autenticaÃ§Ã£o: ' + erro.message);
+        res.status(500).send('❌ Erro na autenticação: ' + erro.message);
         console.error('Erro no callback:', erro);
     }
-});
-
-// Middleware: Restaurar token a cada requisiÃ§Ã£o
-app.use((req, res, next) => {
-    if (globalTokens && oauth2Client) {
-        oauth2Client.setCredentials(globalTokens);
-        drive = google.drive({
-            version: 'v3',
-            auth: oauth2Client
-        });
-        googleAuthReady = true;
-    }
-    next();
 });
 
 // Rota: Debug
@@ -428,7 +418,7 @@ app.get('/api/debug', (req, res) => {
         driveInitialized: drive !== null,
         googleDriveFolderId: GOOGLE_DRIVE_FOLDER_ID,
         authMethod: 'OAuth 2.0 (In-Memory)',
-        message: googleAuthReady ? 'âœ… Autenticado' : 'âŒ NÃ£o autenticado - Acesse /auth'
+        message: googleAuthReady ? '✅ Autenticado' : '❌ Não autenticado - Acesse /auth'
     });
 });
 
@@ -444,21 +434,17 @@ app.get('/api/status', (req, res) => {
     });
 });
 
-// Iniciar servidor
+// Iniciar servidor (Railway usa porta do env)
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
     console.log(`\n${'='.repeat(50)}`);
     console.log(`🎯 CLUBE DO BLINDADO - Cadastro de Clientes`);
     console.log(`${'='.repeat(50)}`);
-    console.log(`\n🚀 Servidor rodando em: http://localhost:${PORT}`);
+    console.log(`\n🌐 Servidor rodando em: http://localhost:${PORT}`);
     console.log(`📁 Pasta Google Drive: ${GOOGLE_DRIVE_FOLDER_ID}`);
-    console.log(`\n💡 Abra no navegador: http://localhost:${PORT}`);
+    console.log(`\n🌍 Abra no navegador: http://localhost:${PORT}`);
     console.log(`${'='.repeat(50)}\n`);
 });
 
 module.exports = app;
-
-
-
-
