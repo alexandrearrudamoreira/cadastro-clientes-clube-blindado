@@ -90,6 +90,48 @@ function restaurarTokenDoArquivo() {
     return false;
 }
 
+// Função: Renovar access_token usando refresh_token
+async function renovarAccessToken() {
+    try {
+        if (!globalTokens || !globalTokens.refresh_token) {
+            console.warn('⚠️  Nenhum refresh_token disponível para renovar');
+            return false;
+        }
+        
+        console.log('🔄 Renovando access_token usando refresh_token...');
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        
+        // Atualizar tokens globais
+        globalTokens = credentials;
+        
+        // Salvar novo token em arquivo
+        try {
+            fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(credentials), 'utf8');
+            console.log('💾 Access_token renovado e salvo em arquivo');
+        } catch (erro) {
+            console.warn('⚠️  Erro ao salvar token renovado:', erro.message);
+        }
+        
+        return true;
+    } catch (erro) {
+        console.error('❌ Erro ao renovar access_token:', erro.message);
+        return false;
+    }
+}
+
+// Função: Verificar se token expirou
+function tokenExpirou() {
+    if (!globalTokens || !globalTokens.expiry_date) {
+        return true; // Se não tem token, considerado expirado
+    }
+    
+    const agora = Date.now();
+    const expiryMs = globalTokens.expiry_date; // Já em milissegundos
+    const margemSeguranca = 5 * 60 * 1000; // 5 minutos antes de expirar
+    
+    return (agora + margemSeguranca) >= expiryMs;
+}
+
 // Tentar restaurar token ao iniciar
 restaurarTokenDoArquivo();
 
@@ -302,11 +344,23 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
     }
 }
 
-// MIDDLEWARE: Restaurar token antes das rotas
-app.use((req, res, next) => {
+// MIDDLEWARE: Restaurar token e renovar se expirado
+app.use(async (req, res, next) => {
     // Tentar restaurar do arquivo se globalTokens estiver vazio
     if (!globalTokens) {
         restaurarTokenDoArquivo();
+    }
+    
+    // Verificar se token expirou e renovar se necessário
+    if (globalTokens && tokenExpirou()) {
+        console.log('⏰ Token expirado ou próximo de expirar, renovando...');
+        const renovouComSucesso = await renovarAccessToken();
+        
+        if (!renovouComSucesso) {
+            console.error('❌ Falha ao renovar token. User precisa fazer login de novo.');
+            globalTokens = null;
+            googleAuthReady = false;
+        }
     }
     
     if (globalTokens && oauth2Client) {
@@ -439,9 +493,17 @@ app.get('/auth/callback', async (req, res) => {
         globalTokens = tokens;
         
         // Salvar token em arquivo /tmp para persistir entre reinicializações
+        // IMPORTANTE: Google fornece refresh_token (válido indefinidamente)
+        // Usar refresh_token para renovar access_token quando expirar
         try {
             fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(tokens), 'utf8');
             console.log('💾 Token OAuth salvo em arquivo: /tmp/oauth-token.json');
+            
+            if (tokens.refresh_token) {
+                console.log('✅ Refresh_token disponível - auto-renovação de token habilitada!');
+            } else {
+                console.warn('⚠️  Aviso: refresh_token não fornecido pelo Google');
+            }
         } catch (erro) {
             console.warn('⚠️  Aviso: Não foi possível salvar token em arquivo:', erro.message);
         }
@@ -462,18 +524,38 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
-// Rota: Debug
+// Rota: Debug (mostra status de autenticação e refresh token)
 app.get('/api/debug', (req, res) => {
     const tokenArmazenado = fs.existsSync(TOKEN_FILE_PATH) ? '✅ Sim' : '❌ Não';
+    
+    let temRefreshToken = '❌ Não';
+    let tokenExpiradoStatus = 'N/A';
+    let minutosAteExpirar = 'N/A';
+    
+    if (globalTokens) {
+        temRefreshToken = globalTokens.refresh_token ? '✅ Sim (auto-renovação habilitada!)' : '❌ Não';
+        
+        if (globalTokens.expiry_date) {
+            const agora = Date.now();
+            const expiryMs = globalTokens.expiry_date;
+            const diferenca = expiryMs - agora;
+            
+            tokenExpiradoStatus = diferenca > 0 ? '✅ Válido' : '❌ Expirado';
+            minutosAteExpirar = Math.floor(diferenca / 1000 / 60);
+        }
+    }
     
     res.json({
         status: 'ok',
         googleAuthReady: googleAuthReady,
         driveInitialized: drive !== null,
         googleDriveFolderId: GOOGLE_DRIVE_FOLDER_ID,
-        authMethod: 'OAuth 2.0 (In-Memory + /tmp)',
+        authMethod: 'OAuth 2.0 (In-Memory + /tmp + Refresh Token)',
         tokenArmazenadoEmArquivo: tokenArmazenado,
-        message: googleAuthReady ? '✅ Autenticado' : '❌ Não autenticado - Acesse /auth'
+        temRefreshToken: temRefreshToken,
+        tokenStatus: tokenExpiradoStatus,
+        minutosAteExpirar: minutosAteExpirar !== 'N/A' ? `${minutosAteExpirar} minutos` : 'N/A',
+        message: googleAuthReady ? '✅ Autenticado (auto-renovação ativa)' : '❌ Não autenticado - Acesse /auth'
     });
 });
 
@@ -481,12 +563,19 @@ app.get('/api/debug', (req, res) => {
 app.get('/api/status', (req, res) => {
     const tokenArmazenado = fs.existsSync(TOKEN_FILE_PATH);
     
+    let temRefreshToken = false;
+    if (globalTokens && globalTokens.refresh_token) {
+        temRefreshToken = true;
+    }
+    
     res.json({
         servidor: 'online',
         modulo: 'cadastro-clientes',
         googleDriveReady: googleAuthReady,
-        authMethod: 'OAuth 2.0 (In-Memory + /tmp)',
+        authMethod: 'OAuth 2.0 (In-Memory + /tmp + Refresh Token)',
         tokenArmazenadoEmArquivo: tokenArmazenado,
+        temRefreshToken: temRefreshToken,
+        autoRenovacaoHabilitada: temRefreshToken ? 'Sim' : 'Não',
         caminhoToken: TOKEN_FILE_PATH,
         environment: 'production',
         timestamp: new Date().toISOString()
@@ -497,17 +586,19 @@ app.get('/api/status', (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-    console.log(`\n${'='.repeat(50)}`);
+    console.log(`\n${'='.repeat(60)}`);
     console.log(`🎯 CLUBE DO BLINDADO - Cadastro de Clientes`);
-    console.log(`${'='.repeat(50)}`);
+    console.log(`${'='.repeat(60)}`);
     console.log(`\n🌐 Servidor rodando em: http://localhost:${PORT}`);
     console.log(`📁 Pasta Google Drive: ${GOOGLE_DRIVE_FOLDER_ID}`);
     console.log(`📄 Token armazenado em: ${TOKEN_FILE_PATH}`);
-    console.log(`🔐 Autenticação: OAuth 2.0 (In-Memory + /tmp)`);
+    console.log(`🔐 Autenticação: OAuth 2.0 (In-Memory + /tmp + Refresh Token)`);
+    console.log(`🔄 Auto-renovação de token: ATIVADA ✅`);
     console.log(`\n🌍 Abra no navegador: http://localhost:${PORT}`);
     console.log(`🔐 Para fazer login: http://localhost:${PORT}/auth`);
     console.log(`🔓 Para fazer logout: http://localhost:${PORT}/logout`);
-    console.log(`${'='.repeat(50)}\n`);
+    console.log(`🐛 Para debug: http://localhost:${PORT}/api/debug`);
+    console.log(`${'='.repeat(60)}\n`);
 });
 
 module.exports = app;
