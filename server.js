@@ -1,0 +1,410 @@
+// Servidor - Cadastro de Clientes
+const express = require('express');
+const path = require('path');
+const PDFDocument = require('pdfkit');
+const { google } = require('googleapis');
+const fs = require('fs');
+const stream = require('stream');
+const dotenv = require('dotenv');
+
+try {
+    dotenv.config();
+} catch (e) {
+    console.log('Aviso: arquivo .env não encontrado');
+}
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+console.log('🚀 Iniciando servidor...');
+
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname)));
+
+// Google Drive Setup
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1KcR1VDwRTd9wVJF2H6Pio7heuk1aBQwU';
+
+let drive = null;
+let googleAuthReady = false;
+
+// Inicializar Google Drive com OAuth
+const initGoogleDrive = async () => {
+    try {
+        const oauthFile = path.join(__dirname, 'oauth-credentials.json');
+        const tokenFile = path.join(__dirname, '.oauth-token.json');
+        
+        if (!fs.existsSync(oauthFile)) {
+            throw new Error('oauth-credentials.json não encontrado');
+        }
+        
+        const credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        
+        const oauth2Client = new google.auth.OAuth2(
+            credentials.client_id,
+            credentials.client_secret,
+            credentials.redirect_uris[0]
+        );
+        
+        if (fs.existsSync(tokenFile)) {
+            const token = JSON.parse(fs.readFileSync(tokenFile, 'utf8'));
+            oauth2Client.setCredentials(token);
+            console.log('✅ Token OAuth carregado');
+        } else {
+            console.warn('⚠️  Token OAuth não encontrado');
+            console.warn('    Será necessário autorizar manualmente na primeira execução');
+            console.warn('    URL: http://localhost:3000/auth');
+        }
+        
+        drive = google.drive({
+            version: 'v3',
+            auth: oauth2Client
+        });
+        
+        googleAuthReady = true;
+        console.log('✅ Google Drive OAuth autenticado');
+    } catch (erro) {
+        console.warn('⚠️  Google Drive não inicializado:', erro.message);
+        console.warn('    Servidor continuará funcionando, mas PDFs não serão salvos no Drive');
+        googleAuthReady = false;
+    }
+};
+
+initGoogleDrive();
+
+// Função: Gerar PDF (1 página única)
+async function gerarPDF(dados) {
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 30
+            });
+
+            let buffers = [];
+            
+            doc.on('data', (data) => {
+                buffers.push(data);
+            });
+
+            doc.on('end', () => {
+                const pdfBuffer = Buffer.concat(buffers);
+                resolve(pdfBuffer);
+            });
+
+            doc.on('error', reject);
+
+            // Área do Header (fundo preto)
+            doc.rect(0, 0, doc.page.width, 50)
+                .fill('#1a1a1a');
+
+            // Título
+            doc.fontSize(16)
+               .font('Helvetica-Bold')
+               .fillColor('#C41E3A')
+               .text('CLUBE DO BLINDADO', 30, 14);
+
+            doc.fillColor('#333333');
+            let yPos = 65;
+
+            // Título Seção 1
+            doc.fontSize(9)
+               .font('Helvetica-Bold')
+               .fillColor('#C41E3A')
+               .text('DADOS DO CLIENTE', 30, yPos);
+            yPos += 10;
+
+            // Nome
+            doc.fontSize(7)
+               .font('Helvetica-Bold')
+               .fillColor('#333333')
+               .text('Nome:', 30, yPos);
+            doc.fontSize(8)
+               .font('Helvetica')
+               .text(dados.nomeCliente, 90, yPos);
+            yPos += 9;
+
+            // Celular
+            doc.fontSize(7)
+               .font('Helvetica-Bold')
+               .fillColor('#333333')
+               .text('Celular:', 30, yPos);
+            doc.fontSize(8)
+               .font('Helvetica')
+               .text(dados.celular, 90, yPos);
+            yPos += 9;
+
+            // E-mail
+            doc.fontSize(7)
+               .font('Helvetica-Bold')
+               .fillColor('#333333')
+               .text('E-mail:', 30, yPos);
+            doc.fontSize(8)
+               .font('Helvetica')
+               .text(dados.email.substring(0, 45), 90, yPos);
+            yPos += 15;
+
+            // Título Seção 2
+            doc.fontSize(9)
+               .font('Helvetica-Bold')
+               .fillColor('#C41E3A')
+               .text('DADOS DO VEÍCULO', 30, yPos);
+            yPos += 10;
+
+            // Placa
+            doc.fontSize(7)
+               .font('Helvetica-Bold')
+               .fillColor('#333333')
+               .text('Placa:', 30, yPos);
+            doc.fontSize(8)
+               .font('Helvetica')
+               .text(dados.placa.toUpperCase(), 90, yPos);
+            yPos += 9;
+
+            // Ano/Modelo
+            doc.fontSize(7)
+               .font('Helvetica-Bold')
+               .fillColor('#333333')
+               .text('Ano/Modelo:', 30, yPos);
+            doc.fontSize(8)
+               .font('Helvetica')
+               .text(dados.anoModelo, 90, yPos);
+            yPos += 20;
+
+            // Linha divisória
+            doc.moveTo(30, yPos)
+               .lineTo(565, yPos)
+               .stroke('#D4AF37');
+            yPos += 8;
+
+            // Rodapé
+            doc.fontSize(6)
+               .font('Helvetica')
+               .fillColor('#666666')
+               .text('Data do Registro: ' + dados.dataRegistro, 30, yPos);
+            
+            doc.fontSize(6)
+               .fillColor('#999999')
+               .text('© 2026 Clube do Blindado', 30, yPos + 10);
+
+            doc.end();
+
+        } catch (erro) {
+            reject(erro);
+        }
+    });
+}
+
+// Função: Buscar arquivo existente no Drive
+async function buscarArquivoNoDrive(nomeArquivo) {
+    try {
+        const response = await drive.files.list({
+            q: `name='${nomeArquivo}' and parents='${GOOGLE_DRIVE_FOLDER_ID}' and trashed=false`,
+            spaces: 'drive',
+            fields: 'files(id, name)',
+            pageSize: 1
+        });
+        
+        if (response.data.files && response.data.files.length > 0) {
+            return response.data.files[0].id;
+        }
+        return null;
+    } catch (erro) {
+        console.warn('⚠️  Erro ao buscar arquivo:', erro.message);
+        return null;
+    }
+}
+
+// Função: Salvar no Google Drive
+async function salvarNoDrive(nomeArquivo, pdfBuffer) {
+    if (!googleAuthReady || !drive) {
+        console.warn('❌ Google Drive não autenticado. Não será possível salvar.');
+        return {
+            savedToDrive: false,
+            error: 'Google Drive não autenticado'
+        };
+    }
+    
+    try {
+        const arquivoExistenteId = await buscarArquivoNoDrive(nomeArquivo);
+        
+        let fileId = null;
+        
+        if (arquivoExistenteId) {
+            console.log(`📝 Arquivo "${nomeArquivo}" já existe. Sobrepondo...`);
+            
+            const media = {
+                mimeType: 'application/pdf',
+                body: stream.Readable.from([pdfBuffer])
+            };
+            
+            await drive.files.update({
+                fileId: arquivoExistenteId,
+                media: media
+            });
+            
+            fileId = arquivoExistenteId;
+            console.log(`✅ Arquivo atualizado no Google Drive: ${fileId}`);
+        } else {
+            const fileMetadata = {
+                name: nomeArquivo,
+                parents: [GOOGLE_DRIVE_FOLDER_ID]
+            };
+
+            const media = {
+                mimeType: 'application/pdf',
+                body: stream.Readable.from([pdfBuffer])
+            };
+
+            const arquivo = await drive.files.create({
+                resource: fileMetadata,
+                media: media,
+                fields: 'id, webViewLink'
+            });
+
+            fileId = arquivo.data.id;
+            console.log(`✅ Arquivo criado no Google Drive: ${fileId}`);
+        }
+        
+        return {
+            savedToDrive: true,
+            id: fileId,
+            fileName: nomeArquivo
+        };
+
+    } catch (erro) {
+        console.error('❌ Erro ao salvar no Google Drive:', erro.message);
+        return {
+            savedToDrive: false,
+            error: erro.message
+        };
+    }
+}
+
+// Rota: Página principal
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// Rota: API - Cadastro
+app.post('/api/cadastro', async (req, res) => {
+    try {
+        const dados = req.body;
+
+        console.log('\n🔄 Processando cadastro...');
+        console.log(`📋 Cliente: ${dados.nomeCliente}`);
+        console.log(`🚗 Placa: ${dados.placa}`);
+
+        if (!dados.nomeCliente || !dados.celular || !dados.placa || !dados.anoModelo || !dados.email) {
+            return res.status(400).json({
+                sucesso: false,
+                mensagem: 'Todos os campos são obrigatórios'
+            });
+        }
+
+        console.log('📄 Gerando PDF...');
+        const pdfBuffer = await gerarPDF(dados);
+
+        const nomeArquivo = `${dados.placa.toUpperCase()}_1.pdf`;
+
+        console.log(`💾 Salvando "${nomeArquivo}" no Google Drive...`);
+        const resultadoDrive = await salvarNoDrive(nomeArquivo, pdfBuffer);
+
+        if (!resultadoDrive.savedToDrive) {
+            console.error(`❌ Falha ao salvar no Google Drive: ${resultadoDrive.error}`);
+            return res.status(500).json({
+                sucesso: false,
+                mensagem: 'Erro ao salvar arquivo no Google Drive: ' + resultadoDrive.error
+            });
+        }
+
+        console.log(`✅ Cadastro salvo com sucesso no Google Drive!\n`);
+        res.json({
+            sucesso: true,
+            mensagem: 'Cadastro salvo com sucesso!',
+            nomeArquivo: nomeArquivo,
+            driveId: resultadoDrive.id
+        });
+
+    } catch (erro) {
+        console.error('❌ Erro no cadastro:', erro);
+        res.status(500).json({
+            sucesso: false,
+            mensagem: 'Erro ao processar cadastro: ' + erro.message
+        });
+    }
+});
+
+// Rota: Autenticação OAuth
+let oauth2Client = null;
+
+app.get('/auth', (req, res) => {
+    try {
+        const oauthFile = path.join(__dirname, 'oauth-credentials.json');
+        const credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        
+        oauth2Client = new google.auth.OAuth2(
+            credentials.client_id,
+            credentials.client_secret,
+            'http://localhost:3000/auth/callback'
+        );
+        
+        const authUrl = oauth2Client.generateAuthUrl({
+            access_type: 'offline',
+            scope: ['https://www.googleapis.com/auth/drive']
+        });
+        
+        res.redirect(authUrl);
+    } catch (erro) {
+        res.status(500).send('Erro ao iniciar autenticação: ' + erro.message);
+    }
+});
+
+app.get('/auth/callback', async (req, res) => {
+    try {
+        const code = req.query.code;
+        if (!code) throw new Error('Código de autorização não recebido');
+        
+        const { tokens } = await oauth2Client.getToken(code);
+        oauth2Client.setCredentials(tokens);
+        
+        const tokenFile = path.join(__dirname, '.oauth-token.json');
+        fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
+        
+        drive = google.drive({
+            version: 'v3',
+            auth: oauth2Client
+        });
+        googleAuthReady = true;
+        
+        res.send('✅ Autenticação bem-sucedida! Token salvo. Você pode fechar esta janela.');
+        console.log('✅ Token OAuth salvo com sucesso!');
+    } catch (erro) {
+        res.status(500).send('❌ Erro na autenticação: ' + erro.message);
+        console.error('Erro no callback:', erro);
+    }
+});
+
+// Rota: Status
+app.get('/api/status', (req, res) => {
+    res.json({
+        servidor: 'online',
+        modulo: 'cadastro-clientes',
+        googleDriveReady: googleAuthReady,
+        timestamp: new Date().toISOString()
+    });
+});
+
+// Iniciar servidor
+app.listen(PORT, () => {
+    console.log(`\n${'='.repeat(50)}`);
+    console.log(`🎯 CLUBE DO BLINDADO - Cadastro de Clientes`);
+    console.log(`${'='.repeat(50)}`);
+    console.log(`\n🚀 Servidor rodando em: http://localhost:${PORT}`);
+    console.log(`📁 Pasta Google Drive: ${GOOGLE_DRIVE_FOLDER_ID}`);
+    console.log(`\n💡 Abra no navegador: http://localhost:${PORT}`);
+    console.log(`${'='.repeat(50)}\n`);
+});
+
+module.exports = app;

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=yes">
+    <meta name="description" content="Sistema de Cadastro de Clientes - Clube do Blindado">
+    <meta name="theme-color" content="#1a1a1a">
+    <title>Cadastro de Clientes - Clube do Blindado</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-content">
+                <div class="logo-section">
+                    <img src="logo-clube.png" alt="Clube do Blindado" class="club-logo">
+                    <h1>CLUBE DO BLINDADO</h1>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Form Container -->
+        <main class="main-content">
+            <div class="form-container">
+                <div class="form-wrapper">
+                    <div class="form-header">
+                        <h2>Cadastro de Cliente</h2>
+                        <p>Preencha os dados abaixo para registrar seu veículo blindado</p>
+                    </div>
+
+                    <form id="cadastroForm" class="form">
+                        <!-- Nome do Cliente -->
+                        <div class="form-group">
+                            <label for="nomeCliente">
+                                <span class="label-text">Nome do Cliente</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="nomeCliente" 
+                                name="nomeCliente"
+                                required
+                                class="form-input"
+                            >
+                            <span class="error-message" id="error-nomeCliente"></span>
+                        </div>
+
+                        <!-- Celular -->
+                        <div class="form-group">
+                            <label for="celular">
+                                <span class="label-text">Celular</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="celular" 
+                                name="celular"
+                                required
+                                class="form-input"
+                                maxlength="15"
+                            >
+                            <span class="error-message" id="error-celular"></span>
+                        </div>
+
+                        <!-- Placa do Veículo -->
+                        <div class="form-group">
+                            <label for="placa">
+                                <span class="label-text">Placa do Veículo</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="placa" 
+                                name="placa"
+                                required
+                                class="form-input"
+                                maxlength="7"
+                            >
+                            <span class="error-message" id="error-placa"></span>
+                        </div>
+
+                        <!-- Ano/Modelo -->
+                        <div class="form-group">
+                            <label for="anoModelo">
+                                <span class="label-text">Ano/Modelo</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="anoModelo" 
+                                name="anoModelo"
+                                required
+                                class="form-input"
+                                placeholder="AAAA/AAAA"
+                            >
+                            <span class="error-message" id="error-anoModelo"></span>
+                        </div>
+
+                        <!-- E-mail -->
+                        <div class="form-group">
+                            <label for="email">
+                                <span class="label-text">E-mail</span>
+                                <span class="required">*</span>
+                            </label>
+                            <input 
+                                type="email" 
+                                id="email" 
+                                name="email"
+                                required
+                                class="form-input"
+                            >
+                            <span class="error-message" id="error-email"></span>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="form-actions">
+                            <button type="submit" class="btn btn-primary" id="submitBtn">
+                                <span class="btn-text">Salvar Cadastro</span>
+                                <span class="btn-loader" style="display: none;">
+                                    <span class="spinner"></span>
+                                </span>
+                            </button>
+                            <button type="reset" class="btn btn-secondary" id="resetBtn">
+                                Novo Cadastro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Support Banner -->
+            <div class="support-banner">
+                <h3>Precisa de Ajuda?</h3>
+                <p>Entre em contato com nosso suporte para dúvidas sobre o cadastro.</p>
+                <a href="mailto:suporte@clubedoBlindado.com.br" class="support-link">Contatar Suporte</a>
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2026 Clube do Blindado. Todos os direitos reservados.</p>
+        </footer>
+    </div>
+
+    <!-- Success Message Modal -->
+    <div id="successMessage" class="success-message" style="display: none;">
+        <div class="success-content">
+            <button id="closeSuccessBtn" class="close-btn" aria-label="Fechar" title="Fechar">&times;</button>
+            <div class="success-icon">✔️</div>
+            <h3>Cadastro Salvo com Sucesso!</h3>
+            <p>Seus dados foram registrados corretamente.</p>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

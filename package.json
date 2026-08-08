@@ -1,0 +1,19 @@
+{
+  "name": "cadastro-clientes-clube-blindado",
+  "version": "1.0.0",
+  "description": "Sistema de Cadastro de Clientes - Clube do Blindado",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["cadastro", "clientes", "clube", "blindado"],
+  "author": "Clube do Blindado",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "pdfkit": "^0.13.0",
+    "googleapis": "^118.0.0",
+    "dotenv": "^16.3.1"
+  }
+}

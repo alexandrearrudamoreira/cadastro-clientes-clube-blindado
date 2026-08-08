@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+.oauth-token.json
+.oauth2_token.json
+oauth-credentials.json
+oauth2_credentials.json
+pdfs/
+*.log
+.DS_Store
