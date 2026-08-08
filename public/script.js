@@ -117,6 +117,21 @@ placaInput.addEventListener('input', (e) => {
     e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
 });
 
+// Formatação de ANO/MODELO (máscara AAAA/AAAA)
+const anoModeloInput = document.getElementById('anoModelo');
+anoModeloInput.addEventListener('input', (e) => {
+    let valor = e.target.value.replace(/\D/g, ''); // Remove tudo que não é número
+    
+    if (valor.length > 8) valor = valor.slice(0, 8); // Máximo 8 dígitos
+    
+    if (valor.length <= 4) {
+        e.target.value = valor;
+    } else {
+        // Formata como AAAA/AAAA
+        e.target.value = `${valor.slice(0, 4)}/${valor.slice(4, 8)}`;
+    }
+});
+
 // Validação completa do formulário
 function validarFormulario() {
     let isValid = true;
@@ -161,10 +176,9 @@ form.addEventListener('submit', async (e) => {
     };
 
     submitBtn.disabled = true;
-    const btnText = submitBtn.querySelector('.btn-text');
-    const btnLoader = submitBtn.querySelector('.btn-loader');
-    btnText.style.display = 'none';
-    btnLoader.style.display = 'inline-block';
+    submitBtn.style.cursor = 'wait'; // Cursor de ampulheta (processamento)
+    submitBtn.textContent = '⏳ Processando...'; // Texto visual de progresso
+    submitBtn.style.pointerEvents = 'none'; // Bloqueia cliques
 
     try {
         const response = await fetch('/api/cadastro', {
@@ -188,21 +202,27 @@ form.addEventListener('submit', async (e) => {
 
             setTimeout(() => {
                 submitBtn.disabled = false;
+                submitBtn.style.cursor = 'pointer';
+                submitBtn.style.pointerEvents = 'auto';
+                submitBtn.textContent = 'Salvar Cadastro';
                 atualizarBotao();
             }, 3000);
         } else {
             alert(`Erro ao salvar: ${resultado.mensagem}`);
             submitBtn.disabled = false;
+            submitBtn.style.cursor = 'pointer';
+            submitBtn.style.pointerEvents = 'auto';
+            submitBtn.textContent = 'Salvar Cadastro';
             atualizarBotao();
         }
     } catch (erro) {
         console.error('Erro:', erro);
         alert(`Erro ao processar cadastro: ${erro.message}`);
         submitBtn.disabled = false;
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.style.pointerEvents = 'auto';
+        submitBtn.textContent = 'Salvar Cadastro';
         atualizarBotao();
-    } finally {
-        btnText.style.display = 'inline';
-        btnLoader.style.display = 'none';
     }
 });
 
@@ -210,6 +230,9 @@ form.addEventListener('submit', async (e) => {
 successMessage.addEventListener('click', (e) => {
     if (e.target === successMessage) {
         successMessage.style.display = 'none';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.style.pointerEvents = 'auto';
+        submitBtn.textContent = 'Salvar Cadastro';
     }
 });
 
@@ -218,6 +241,9 @@ const closeSuccessBtn = document.getElementById('closeSuccessBtn');
 if (closeSuccessBtn) {
     closeSuccessBtn.addEventListener('click', () => {
         successMessage.style.display = 'none';
+        submitBtn.style.cursor = 'pointer';
+        submitBtn.style.pointerEvents = 'auto';
+        submitBtn.textContent = 'Salvar Cadastro';
     });
 }
 
