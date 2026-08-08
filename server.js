@@ -280,6 +280,19 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
 }
 
 // Rota: PÃ¡gina principal (serve index.html da pasta public)
+// MIDDLEWARE: Restaurar token antes das rotas
+app.use((req, res, next) => {
+    if (globalTokens && oauth2Client) {
+        oauth2Client.setCredentials(globalTokens);
+        drive = google.drive({
+            version: 'v3',
+            auth: oauth2Client
+        });
+        googleAuthReady = true;
+    }
+    next();
+});
+
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -445,4 +458,7 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+
+
+
 
