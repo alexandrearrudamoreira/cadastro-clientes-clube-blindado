@@ -1,4 +1,4 @@
-// Servidor - Cadastro de Clientes (Railway Deployment)
+// Servidor - Cadastro de Clientes (Railway Deployment + Token Persistence)
 const express = require('express');
 const path = require('path');
 const PDFDocument = require('pdfkit');
@@ -27,10 +27,13 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Google Drive Setup
 const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1KcR1VDwRTd9wVJF2H6Pio7heuk1aBQwU';
 
+// Arquivo para persistir token entre reinicializações
+const TOKEN_FILE_PATH = path.join('/tmp', 'oauth-token.json');
+
 let drive = null;
 let googleAuthReady = false;
 let oauth2Client = null;
-let globalTokens = null; // Persistência de token em memória
+let globalTokens = null; // Persistência de token em memória + arquivo
 
 // Inicializar Google Drive com OAuth
 const initGoogleDrive = async () => {
@@ -71,6 +74,24 @@ const initGoogleDrive = async () => {
 };
 
 initGoogleDrive();
+
+// Função: Restaurar token do arquivo (se existir)
+function restaurarTokenDoArquivo() {
+    try {
+        if (fs.existsSync(TOKEN_FILE_PATH)) {
+            const tokenSalvo = JSON.parse(fs.readFileSync(TOKEN_FILE_PATH, 'utf8'));
+            globalTokens = tokenSalvo;
+            console.log('🔐 Token restaurado do arquivo /tmp/oauth-token.json');
+            return true;
+        }
+    } catch (erro) {
+        console.warn('⚠️  Erro ao restaurar token do arquivo:', erro.message);
+    }
+    return false;
+}
+
+// Tentar restaurar token ao iniciar
+restaurarTokenDoArquivo();
 
 // Função: Gerar PDF (1 página única)
 async function gerarPDF(dados) {
@@ -283,6 +304,11 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
 
 // MIDDLEWARE: Restaurar token antes das rotas
 app.use((req, res, next) => {
+    // Tentar restaurar do arquivo se globalTokens estiver vazio
+    if (!globalTokens) {
+        restaurarTokenDoArquivo();
+    }
+    
     if (globalTokens && oauth2Client) {
         oauth2Client.setCredentials(globalTokens);
         drive = google.drive({
@@ -290,7 +316,6 @@ app.use((req, res, next) => {
             auth: oauth2Client
         });
         googleAuthReady = true;
-        // console.log('🔒 Token restaurado no middleware'); // Log comentado
     }
     next();
 });
@@ -349,6 +374,22 @@ app.post('/api/cadastro', async (req, res) => {
     }
 });
 
+// Rota: Logout (deletar token)
+app.get('/logout', (req, res) => {
+    try {
+        if (fs.existsSync(TOKEN_FILE_PATH)) {
+            fs.unlinkSync(TOKEN_FILE_PATH);
+            console.log('🔓 Token deletado: /tmp/oauth-token.json');
+        }
+        globalTokens = null;
+        googleAuthReady = false;
+        res.send('✅ Logout realizado! Token deletado. <a href="/">Voltar</a>');
+    } catch (erro) {
+        console.error('❌ Erro ao fazer logout:', erro.message);
+        res.status(500).send('❌ Erro ao fazer logout: ' + erro.message);
+    }
+});
+
 // Rota: Autenticação OAuth
 app.get('/auth', (req, res) => {
     try {
@@ -396,6 +437,15 @@ app.get('/auth/callback', async (req, res) => {
         
         // Salvar token globalmente para persistir entre requisições
         globalTokens = tokens;
+        
+        // Salvar token em arquivo /tmp para persistir entre reinicializações
+        try {
+            fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(tokens), 'utf8');
+            console.log('💾 Token OAuth salvo em arquivo: /tmp/oauth-token.json');
+        } catch (erro) {
+            console.warn('⚠️  Aviso: Não foi possível salvar token em arquivo:', erro.message);
+        }
+        
         console.log('🔐 Token OAuth salvo em globalTokens:', !!globalTokens);
         
         drive = google.drive({
@@ -405,7 +455,7 @@ app.get('/auth/callback', async (req, res) => {
         googleAuthReady = true;
         
         console.log('✅ Token restaurado para próximas requisições');
-        res.send('✅ Autenticação bem-sucedida! Token salvo. Você pode fechar esta janela.');
+        res.send('✅ Autenticação bem-sucedida! Token salvo em memória e arquivo. Você pode fechar esta janela.');
     } catch (erro) {
         res.status(500).send('❌ Erro na autenticação: ' + erro.message);
         console.error('Erro no callback:', erro);
@@ -414,23 +464,30 @@ app.get('/auth/callback', async (req, res) => {
 
 // Rota: Debug
 app.get('/api/debug', (req, res) => {
+    const tokenArmazenado = fs.existsSync(TOKEN_FILE_PATH) ? '✅ Sim' : '❌ Não';
+    
     res.json({
         status: 'ok',
         googleAuthReady: googleAuthReady,
         driveInitialized: drive !== null,
         googleDriveFolderId: GOOGLE_DRIVE_FOLDER_ID,
-        authMethod: 'OAuth 2.0 (In-Memory)',
+        authMethod: 'OAuth 2.0 (In-Memory + /tmp)',
+        tokenArmazenadoEmArquivo: tokenArmazenado,
         message: googleAuthReady ? '✅ Autenticado' : '❌ Não autenticado - Acesse /auth'
     });
 });
 
 // Rota: Status
 app.get('/api/status', (req, res) => {
+    const tokenArmazenado = fs.existsSync(TOKEN_FILE_PATH);
+    
     res.json({
         servidor: 'online',
         modulo: 'cadastro-clientes',
         googleDriveReady: googleAuthReady,
-        authMethod: 'OAuth 2.0',
+        authMethod: 'OAuth 2.0 (In-Memory + /tmp)',
+        tokenArmazenadoEmArquivo: tokenArmazenado,
+        caminhoToken: TOKEN_FILE_PATH,
         environment: 'production',
         timestamp: new Date().toISOString()
     });
@@ -445,7 +502,11 @@ app.listen(PORT, () => {
     console.log(`${'='.repeat(50)}`);
     console.log(`\n🌐 Servidor rodando em: http://localhost:${PORT}`);
     console.log(`📁 Pasta Google Drive: ${GOOGLE_DRIVE_FOLDER_ID}`);
+    console.log(`📄 Token armazenado em: ${TOKEN_FILE_PATH}`);
+    console.log(`🔐 Autenticação: OAuth 2.0 (In-Memory + /tmp)`);
     console.log(`\n🌍 Abra no navegador: http://localhost:${PORT}`);
+    console.log(`🔐 Para fazer login: http://localhost:${PORT}/auth`);
+    console.log(`🔓 Para fazer logout: http://localhost:${PORT}/logout`);
     console.log(`${'='.repeat(50)}\n`);
 });
 
