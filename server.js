@@ -32,14 +32,23 @@ let googleAuthReady = false;
 // Inicializar Google Drive com OAuth
 const initGoogleDrive = async () => {
     try {
-        const oauthFile = path.join(__dirname, 'oauth-credentials.json');
-        const tokenFile = path.join(__dirname, '.oauth-token.json');
+        let credentials;
         
-        if (!fs.existsSync(oauthFile)) {
-            throw new Error('oauth-credentials.json não encontrado');
+        // Tentar ler da variável de ambiente (Vercel) primeiro
+        if (process.env.OAUTH_CREDENTIALS_JSON) {
+            credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
+            console.log('✅ Credenciais OAuth carregadas da variável de ambiente');
+        } else {
+            // Fallback para arquivo local (desenvolvimento)
+            const oauthFile = path.join(__dirname, 'oauth-credentials.json');
+            if (!fs.existsSync(oauthFile)) {
+                throw new Error('oauth-credentials.json não encontrado e OAUTH_CREDENTIALS_JSON não definida');
+            }
+            credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+            console.log('✅ Credenciais OAuth carregadas do arquivo local');
         }
         
-        const credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        const tokenFile = path.join(__dirname, '.oauth-token.json');
         
         const oauth2Client = new google.auth.OAuth2(
             credentials.client_id,
@@ -341,13 +350,24 @@ let oauth2Client = null;
 
 app.get('/auth', (req, res) => {
     try {
-        const oauthFile = path.join(__dirname, 'oauth-credentials.json');
-        const credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        let credentials;
+        
+        // Tentar ler da variável de ambiente (Vercel) primeiro
+        if (process.env.OAUTH_CREDENTIALS_JSON) {
+            credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
+        } else {
+            // Fallback para arquivo local (desenvolvimento)
+            const oauthFile = path.join(__dirname, 'oauth-credentials.json');
+            credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        }
+        
+        // Usar o redirect_uri correto (do arquivo de credenciais)
+        const redirectUri = credentials.redirect_uris[0];
         
         oauth2Client = new google.auth.OAuth2(
             credentials.client_id,
             credentials.client_secret,
-            'http://localhost:3000/auth/callback'
+            redirectUri
         );
         
         const authUrl = oauth2Client.generateAuthUrl({
@@ -355,8 +375,11 @@ app.get('/auth', (req, res) => {
             scope: ['https://www.googleapis.com/auth/drive']
         });
         
+        console.log('🔐 Redirecionando para autenticação Google...');
+        console.log(`   Redirect URI: ${redirectUri}`);
         res.redirect(authUrl);
     } catch (erro) {
+        console.error('❌ Erro ao iniciar autenticação:', erro.message);
         res.status(500).send('Erro ao iniciar autenticação: ' + erro.message);
     }
 });
