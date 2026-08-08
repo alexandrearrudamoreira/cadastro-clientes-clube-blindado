@@ -21,8 +21,8 @@ console.log('🚀 Inicializando API Cadastro de Clientes...');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Servir arquivos estáticos da raiz
-app.use(express.static(path.join(__dirname, '..')));
+// Servir arquivos estáticos da pasta public
+app.use(express.static(path.join(__dirname, '..', 'public')));
 
 // Google Drive Setup
 const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID || '1KcR1VDwRTd9wVJF2H6Pio7heuk1aBQwU';
@@ -279,9 +279,9 @@ async function salvarNoDrive(nomeArquivo, pdfBuffer) {
     }
 }
 
-// Rota: Página principal (serve index.html)
+// Rota: Página principal (serve index.html da pasta public)
 app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, '..', 'index.html'));
+    res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
 // Rota: API - Cadastro
