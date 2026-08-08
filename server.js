@@ -393,7 +393,7 @@ app.get('/auth/callback', async (req, res) => {
         oauth2Client.setCredentials(tokens);
         
         const tokenFile = path.join(__dirname, '.oauth-token.json');
-        fs.writeFileSync(tokenFile, JSON.stringify(tokens, null, 2));
+        // Token em memoria (Vercel read-only filesystem)
         
         drive = google.drive({
             version: 'v3',
