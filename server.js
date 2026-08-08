@@ -338,16 +338,12 @@ let oauth2Client = null;
 
 app.get('/auth', (req, res) => {
     try {
-        let credentials;
-        
-        // Tentar ler da variÃ¡vel de ambiente (Vercel) primeiro
-        if (process.env.OAUTH_CREDENTIALS_JSON) {
-            credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
-        } else {
-            // Fallback para arquivo local (desenvolvimento)
-            const oauthFile = path.join(__dirname, 'oauth-credentials.json');
-            credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
+        // Em produção: SEMPRE usar variável de ambiente
+        if (!process.env.OAUTH_CREDENTIALS_JSON) {
+            throw new Error('OAUTH_CREDENTIALS_JSON nao configurada no ambiente');
         }
+        
+        const credentials = JSON.parse(process.env.OAUTH_CREDENTIALS_JSON).installed;
         
         // Usar o redirect_uri correto (do arquivo de credenciais)
         const redirectUri = credentials.redirect_uris[0];
