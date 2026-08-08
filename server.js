@@ -469,7 +469,8 @@ app.get('/auth', (req, res) => {
         
         const authUrl = oauth2Client.generateAuthUrl({
             access_type: 'offline',
-            scope: ['https://www.googleapis.com/auth/drive']
+            scope: ['https://www.googleapis.com/auth/drive'],
+            prompt: 'consent' // Força Google a mostrar tela de consentimento e fornecer refresh_token
         });
         
         console.log('🔐 Redirecionando para autenticação Google...');
@@ -489,6 +490,13 @@ app.get('/auth/callback', async (req, res) => {
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
         
+        // Log detalhado do token recebido
+        console.log('\n🔍 Informações do Token Recebido:');
+        console.log(`   - Access Token: ${tokens.access_token ? '✅ Sim (' + tokens.access_token.substring(0, 10) + '...)' : '❌ Não'}`);
+        console.log(`   - Refresh Token: ${tokens.refresh_token ? '✅ Sim (' + tokens.refresh_token.substring(0, 10) + '...)' : '❌ Não'}`);
+        console.log(`   - Expiry Date: ${tokens.expiry_date ? '✅ ' + new Date(tokens.expiry_date).toLocaleString() : '❌ Não definida'}`);
+        console.log('');
+        
         // Salvar token globalmente para persistir entre requisições
         globalTokens = tokens;
         
@@ -500,9 +508,9 @@ app.get('/auth/callback', async (req, res) => {
             console.log('💾 Token OAuth salvo em arquivo: /tmp/oauth-token.json');
             
             if (tokens.refresh_token) {
-                console.log('✅ Refresh_token disponível - auto-renovação de token habilitada!');
+                console.log('✅ Refresh_token disponível - auto-renovação de token habilitada! 🔄');
             } else {
-                console.warn('⚠️  Aviso: refresh_token não fornecido pelo Google');
+                console.warn('⚠️  Aviso: refresh_token não fornecido pelo Google (pode precisar fazer logout + login de novo com prompt: consent)');
             }
         } catch (erro) {
             console.warn('⚠️  Aviso: Não foi possível salvar token em arquivo:', erro.message);
@@ -517,7 +525,9 @@ app.get('/auth/callback', async (req, res) => {
         googleAuthReady = true;
         
         console.log('✅ Token restaurado para próximas requisições');
-        res.send('✅ Autenticação bem-sucedida! Token salvo em memória e arquivo. Você pode fechar esta janela.');
+        
+        const temRefresh = tokens.refresh_token ? '✅ Sim! Auto-renovação ativa!' : '⚠️  Não (tente logout + login de novo)';
+        res.send(`✅ Autenticação bem-sucedida!<br>Token salvo em memória e arquivo.<br>Refresh Token: ${temRefresh}<br><br><a href="/">Voltar para home</a>`);
     } catch (erro) {
         res.status(500).send('❌ Erro na autenticação: ' + erro.message);
         console.error('Erro no callback:', erro);
