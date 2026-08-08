@@ -335,6 +335,7 @@ app.post('/api/cadastro', async (req, res) => {
 
 // Rota: AutenticaÃ§Ã£o OAuth
 let oauth2Client = null;
+let globalTokens = null;
 
 app.get('/auth', (req, res) => {
     try {
@@ -376,7 +377,8 @@ app.get('/auth/callback', async (req, res) => {
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
         
-        // Token em memoria (Vercel read-only filesystem)
+        // Salvar token globalmente para persistir entre requisiÃ§Ãµes
+        globalTokens = tokens;
         
         drive = google.drive({
             version: 'v3',
@@ -390,6 +392,19 @@ app.get('/auth/callback', async (req, res) => {
         res.status(500).send('âŒ Erro na autenticaÃ§Ã£o: ' + erro.message);
         console.error('Erro no callback:', erro);
     }
+});
+
+// Middleware: Restaurar token a cada requisiÃ§Ã£o
+app.use((req, res, next) => {
+    if (globalTokens && oauth2Client) {
+        oauth2Client.setCredentials(globalTokens);
+        drive = google.drive({
+            version: 'v3',
+            auth: oauth2Client
+        });
+        googleAuthReady = true;
+    }
+    next();
 });
 
 // Rota: Debug
