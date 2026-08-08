@@ -290,6 +290,7 @@ app.use((req, res, next) => {
             auth: oauth2Client
         });
         googleAuthReady = true;
+        // console.log('🔒 Token restaurado no middleware'); // Log comentado
     }
     next();
 });
@@ -395,6 +396,7 @@ app.get('/auth/callback', async (req, res) => {
         
         // Salvar token globalmente para persistir entre requisições
         globalTokens = tokens;
+        console.log('🔐 Token OAuth salvo em globalTokens:', !!globalTokens);
         
         drive = google.drive({
             version: 'v3',
@@ -402,8 +404,8 @@ app.get('/auth/callback', async (req, res) => {
         });
         googleAuthReady = true;
         
+        console.log('✅ Token restaurado para próximas requisições');
         res.send('✅ Autenticação bem-sucedida! Token salvo. Você pode fechar esta janela.');
-        console.log('✅ Token OAuth salvo com sucesso!');
     } catch (erro) {
         res.status(500).send('❌ Erro na autenticação: ' + erro.message);
         console.error('Erro no callback:', erro);
