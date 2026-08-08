@@ -3,7 +3,8 @@
   "builds": [
     {
       "src": "server.js",
-      "use": "@vercel/node"
+      "use": "@vercel/node",
+      "config": { "zeroConfig": true }
     }
   ],
   "routes": [
@@ -16,12 +17,12 @@
       "dest": "server.js"
     },
     {
+      "src": "/(.*\\.(?:js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot))",
+      "dest": "/server.js"
+    },
+    {
       "src": "/(.*)",
       "dest": "server.js"
     }
-  ],
-  "env": {
-    "OAUTH_CREDENTIALS_JSON": "@oauth_credentials_json",
-    "GOOGLE_DRIVE_FOLDER_ID": "@google_drive_folder_id"
-  }
+  ]
 }
