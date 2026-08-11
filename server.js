@@ -534,6 +534,30 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
+// Rota: Restaurar token via refresh_token (para uso do Bob sem abrir browser)
+app.post('/api/set-refresh-token', async (req, res) => {
+    const { refresh_token } = req.body;
+    if (!refresh_token) {
+        return res.status(400).json({ error: 'refresh_token obrigatorio no body' });
+    }
+    if (!oauth2Client) {
+        return res.status(500).json({ error: 'oauth2Client nao inicializado' });
+    }
+    try {
+        oauth2Client.setCredentials({ refresh_token });
+        const { credentials } = await oauth2Client.refreshAccessToken();
+        globalTokens = credentials;
+        // Salvar em /tmp
+        try { fs.writeFileSync(TOKEN_FILE_PATH, JSON.stringify(credentials), 'utf8'); } catch(e) {}
+        oauth2Client.setCredentials(credentials);
+        drive = google.drive({ version: 'v3', auth: oauth2Client });
+        googleAuthReady = true;
+        res.json({ ok: true, message: 'Token restaurado com sucesso!', expiresIn: Math.floor((credentials.expiry_date - Date.now()) / 1000) + 's' });
+    } catch(e) {
+        res.status(500).json({ error: 'Falha ao renovar token: ' + e.message });
+    }
+});
+
 // Rota: Lookup de placa no Google Drive (busca dados do cliente no PDF e file ID do RGV)
 app.get('/api/lookup-plate/:placa', async (req, res) => {
     const placa = req.params.placa.toUpperCase();
