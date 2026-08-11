@@ -534,6 +534,116 @@ app.get('/auth/callback', async (req, res) => {
     }
 });
 
+// Rota: Lookup de placa no Google Drive (busca dados do cliente no PDF e file ID do RGV)
+app.get('/api/lookup-plate/:placa', async (req, res) => {
+    const placa = req.params.placa.toUpperCase();
+    const RELATORIO_FOLDER_ID = '1QACDuCzkYojEcSdWNEGEVo-WRiXobbpb'; // [3-Relatorio Final]
+    const PROCESSAMENTO_FOLDER_ID = '1KcR1VDwRTd9wVJF2H6Pio7heuk1aBQwU'; // [2-Processamento]
+
+    if (!googleAuthReady || !drive) {
+        return res.status(401).json({ error: 'Google Drive não autenticado. Acesse /auth primeiro.' });
+    }
+
+    try {
+        // 1. Buscar subpasta da placa em [3-Relatorio Final]
+        let placaFolderId = null;
+        let searchInFolders = [RELATORIO_FOLDER_ID, PROCESSAMENTO_FOLDER_ID];
+
+        for (const parentId of searchInFolders) {
+            const folderResp = await drive.files.list({
+                q: `name='${placa}' and '${parentId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+                fields: 'files(id, name)',
+                pageSize: 1
+            });
+            if (folderResp.data.files && folderResp.data.files.length > 0) {
+                placaFolderId = folderResp.data.files[0].id;
+                break;
+            }
+        }
+
+        // 2. Se não achou subpasta, buscar o PDF diretamente em [2-Processamento]
+        let files = [];
+        if (placaFolderId) {
+            const filesResp = await drive.files.list({
+                q: `'${placaFolderId}' in parents and trashed=false`,
+                fields: 'files(id, name, mimeType)',
+                pageSize: 20
+            });
+            files = filesResp.data.files || [];
+        } else {
+            // Buscar PDF diretamente em [2-Processamento]
+            const pdfResp = await drive.files.list({
+                q: `name='${placa}_1.pdf' and '${PROCESSAMENTO_FOLDER_ID}' in parents and trashed=false`,
+                fields: 'files(id, name, mimeType)',
+                pageSize: 1
+            });
+            if (pdfResp.data.files && pdfResp.data.files.length > 0) {
+                files = pdfResp.data.files;
+            }
+        }
+
+        // 3. Identificar PDF e PNG
+        const pngFile = files.find(f => f.name.toLowerCase().includes('rgv') && (f.mimeType === 'image/png' || f.name.endsWith('.png')));
+        const pdfFile = files.find(f => f.name.endsWith('.pdf'));
+
+        const result = {
+            placa,
+            folderId: placaFolderId,
+            files: files.map(f => ({ id: f.id, name: f.name, mimeType: f.mimeType })),
+            pngFileId: pngFile ? pngFile.id : null,
+            pngFileName: pngFile ? pngFile.name : null,
+            pdfFileId: pdfFile ? pdfFile.id : null,
+            nomeCliente: null,
+            celular: null
+        };
+
+        // 4. Se achou PDF, baixar e extrair dados
+        if (pdfFile) {
+            try {
+                const pdfStream = await drive.files.get(
+                    { fileId: pdfFile.id, alt: 'media' },
+                    { responseType: 'arraybuffer' }
+                );
+                const pdfBuffer = Buffer.from(pdfStream.data);
+
+                // Tentar extrair texto com pdf-parse
+                try {
+                    const pdfParse = require('pdf-parse');
+                    const data = await pdfParse(pdfBuffer);
+                    const text = data.text || '';
+
+                    // Extrair campos do PDF
+                    const extractField = (label) => {
+                        const regex = new RegExp(label + '[:\\s]+([^\\n]{1,60})', 'i');
+                        const match = text.match(regex);
+                        return match ? match[1].trim() : null;
+                    };
+
+                    result.nomeCliente = extractField('Nome');
+                    result.celular = extractField('Celular');
+                    result.email = extractField('E-mail');
+                    result.pdfText = text.substring(0, 500);
+                } catch (parseErr) {
+                    result.pdfParseError = parseErr.message;
+                    // Fallback: buscar texto na string raw do buffer
+                    const raw = pdfBuffer.toString('latin1');
+                    const textChunks = raw.match(/\(([^)]{3,60})\)/g);
+                    if (textChunks) {
+                        result.rawTexts = textChunks.slice(0, 30).map(t => t.slice(1, -1));
+                    }
+                }
+            } catch (dlErr) {
+                result.pdfDownloadError = dlErr.message;
+            }
+        }
+
+        res.json(result);
+    } catch (e) {
+        console.error('❌ lookup-plate error:', e.message);
+        res.status(500).json({ error: e.message });
+    }
+});
+
 // Rota: Debug (mostra status de autenticação e refresh token)
 app.get('/api/debug', (req, res) => {
     const tokenArmazenado = fs.existsSync(TOKEN_FILE_PATH) ? '✅ Sim' : '❌ Não';
