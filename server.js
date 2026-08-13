@@ -135,6 +135,13 @@ function tokenExpirou() {
 // Tentar restaurar token ao iniciar
 restaurarTokenDoArquivo();
 
+// Se tem GOOGLE_REFRESH_TOKEN como env var, restaurar automaticamente (Railway permanente)
+if (!globalTokens && process.env.GOOGLE_REFRESH_TOKEN) {
+    console.log('🔑 Restaurando token via env var GOOGLE_REFRESH_TOKEN...');
+    globalTokens = { refresh_token: process.env.GOOGLE_REFRESH_TOKEN };
+    // access_token será renovado automaticamente no primeiro request
+}
+
 // Função: Gerar PDF (1 página única)
 async function gerarPDF(dados) {
     return new Promise((resolve, reject) => {
@@ -350,6 +357,11 @@ app.use(async (req, res, next) => {
     if (!globalTokens) {
         restaurarTokenDoArquivo();
     }
+
+    // Garantir que oauth2Client tem as credenciais antes de tentar renovar
+    if (globalTokens && oauth2Client) {
+        oauth2Client.setCredentials(globalTokens);
+    }
     
     // Verificar se token expirou e renovar se necessário
     if (globalTokens && tokenExpirou()) {
@@ -458,8 +470,11 @@ app.get('/auth', (req, res) => {
             credentials = JSON.parse(fs.readFileSync(oauthFile, 'utf8')).installed;
         }
         
-        // Usar o redirect_uri correto (do arquivo de credenciais)
-        const redirectUri = credentials.redirect_uris[0];
+        // Usar o redirect_uri correto: localhost em dev, Vercel em produção
+        const isLocal = !process.env.RAILWAY_ENVIRONMENT && !process.env.PORT_PROD;
+        const redirectUri = isLocal
+            ? (credentials.redirect_uris.find(u => u.startsWith('http://localhost')) || credentials.redirect_uris[0])
+            : (credentials.redirect_uris.find(u => u.startsWith('https://')) || credentials.redirect_uris[0]);
         
         oauth2Client = new google.auth.OAuth2(
             credentials.client_id,
